@@ -85,10 +85,10 @@
 //! # untyped_example().unwrap();
 //! ```
 //!
-//! [macro]: https://docs.serde.rs/serde_json/macro.json.html
-//! [from_str]: https://docs.serde.rs/serde_json/de/fn.from_str.html
-//! [from_slice]: https://docs.serde.rs/serde_json/de/fn.from_slice.html
-//! [from_reader]: https://docs.serde.rs/serde_json/de/fn.from_reader.html
+//! [macro]: crate::json
+//! [from_str]: crate::de::from_str
+//! [from_slice]: crate::de::from_slice
+//! [from_reader]: crate::de::from_reader
 
 use crate::error::Error;
 use crate::io;
@@ -106,12 +106,13 @@ pub use crate::map::Map;
 pub use crate::number::Number;
 
 #[cfg(feature = "raw_value")]
+#[cfg_attr(docsrs, doc(cfg(feature = "raw_value")))]
 pub use crate::raw::{to_raw_value, RawValue};
 
 /// Represents any valid JSON value.
 ///
 /// See the [`serde_json::value` module documentation](self) for usage examples.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Value {
     /// Represents a JSON null value.
     ///
@@ -177,19 +178,17 @@ pub enum Value {
 impl Debug for Value {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Value::Null => formatter.debug_tuple("Null").finish(),
-            Value::Bool(v) => formatter.debug_tuple("Bool").field(v).finish(),
-            Value::Number(v) => Debug::fmt(v, formatter),
-            Value::String(v) => formatter.debug_tuple("String").field(v).finish(),
-            Value::Array(v) => {
-                formatter.write_str("Array(")?;
-                Debug::fmt(v, formatter)?;
-                formatter.write_str(")")
+            Value::Null => formatter.write_str("Null"),
+            Value::Bool(boolean) => write!(formatter, "Bool({})", boolean),
+            Value::Number(number) => Debug::fmt(number, formatter),
+            Value::String(string) => write!(formatter, "String({:?})", string),
+            Value::Array(vec) => {
+                tri!(formatter.write_str("Array "));
+                Debug::fmt(vec, formatter)
             }
-            Value::Object(v) => {
-                formatter.write_str("Object(")?;
-                Debug::fmt(v, formatter)?;
-                formatter.write_str(")")
+            Value::Object(map) => {
+                tri!(formatter.write_str("Object "));
+                Debug::fmt(map, formatter)
             }
         }
     }
@@ -513,6 +512,28 @@ impl Value {
         match *self {
             Value::Number(_) => true,
             _ => false,
+        }
+    }
+
+    /// If the `Value` is a Number, returns the associated [`Number`]. Returns
+    /// None otherwise.
+    ///
+    /// ```
+    /// # use serde_json::{json, Number};
+    /// #
+    /// let v = json!({ "a": 1, "b": 2.2, "c": -3, "d": "4" });
+    ///
+    /// assert_eq!(v["a"].as_number(), Some(&Number::from(1u64)));
+    /// assert_eq!(v["b"].as_number(), Some(&Number::from_f64(2.2).unwrap()));
+    /// assert_eq!(v["c"].as_number(), Some(&Number::from(-3i64)));
+    ///
+    /// // The string `"4"` is not a number.
+    /// assert_eq!(v["d"].as_number(), None);
+    /// ```
+    pub fn as_number(&self) -> Option<&Number> {
+        match self {
+            Value::Number(number) => Some(number),
+            _ => None,
         }
     }
 
@@ -840,6 +861,32 @@ impl Value {
     pub fn take(&mut self) -> Value {
         mem::replace(self, Value::Null)
     }
+
+    /// Reorders the entries of all `Value::Object` nested within this JSON
+    /// value according to `str`'s usual ordering.
+    ///
+    /// If serde_json's "preserve_order" feature is not enabled, this method
+    /// does no work because all JSON maps are always kept in a sorted state.
+    ///
+    /// If serde_json's "preserve_order" feature is enabled, this method
+    /// destroys the original source order or insertion order of the JSON
+    /// objects in favor of an alphanumerical order that matches how a BTreeMap
+    /// with the same contents would be ordered.
+    pub fn sort_all_objects(&mut self) {
+        #[cfg(feature = "preserve_order")]
+        {
+            match self {
+                Value::Object(map) => {
+                    map.sort_keys();
+                    map.values_mut().for_each(Value::sort_all_objects);
+                }
+                Value::Array(list) => {
+                    list.iter_mut().for_each(Value::sort_all_objects);
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 /// The default value is `Value::Null`.
@@ -891,7 +938,6 @@ mod ser;
 /// ```
 /// use serde::Serialize;
 /// use serde_json::json;
-///
 /// use std::error::Error;
 ///
 /// #[derive(Serialize)]
@@ -900,7 +946,7 @@ mod ser;
 ///     location: String,
 /// }
 ///
-/// fn compare_json_values() -> Result<(), Box<Error>> {
+/// fn compare_json_values() -> Result<(), Box<dyn Error>> {
 ///     let u = User {
 ///         fingerprint: "0xF9BA143B95FF6D82".to_owned(),
 ///         location: "Menlo Park, CA".to_owned(),
