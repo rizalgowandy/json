@@ -55,10 +55,9 @@
 //! ```
 //!
 //! A string of JSON data can be parsed into a `serde_json::Value` by the
-//! [`serde_json::from_str`][from_str] function. There is also
-//! [`from_slice`][from_slice] for parsing from a byte slice &[u8] and
-//! [`from_reader`][from_reader] for parsing from any `io::Read` like a File or
-//! a TCP stream.
+//! [`serde_json::from_str`][from_str] function. There is also [`from_slice`]
+//! for parsing from a byte slice `&[u8]` and [`from_reader`] for parsing from
+//! any `io::Read` like a File or a TCP stream.
 //!
 //! ```
 //! use serde_json::{Result, Value};
@@ -104,7 +103,7 @@
 //! a JSON string to a Rust string with [`as_str()`] or avoiding the use of
 //! `Value` as described in the following section.
 //!
-//! [`as_str()`]: https://docs.serde.rs/serde_json/enum.Value.html#method.as_str
+//! [`as_str()`]: crate::Value::as_str
 //!
 //! The `Value` representation is sufficient for very basic tasks but can be
 //! tedious to work with for anything more significant. Error handling is
@@ -279,8 +278,8 @@
 //! # No-std support
 //!
 //! As long as there is a memory allocator, it is possible to use serde_json
-//! without the rest of the Rust standard library. This is supported on Rust
-//! 1.36+. Disable the default "std" feature and enable the "alloc" feature:
+//! without the rest of the Rust standard library. Disable the default "std"
+//! feature and enable the "alloc" feature:
 //!
 //! ```toml
 //! [dependencies]
@@ -290,17 +289,17 @@
 //! For JSON support in Serde without a memory allocator, please see the
 //! [`serde-json-core`] crate.
 //!
-//! [value]: https://docs.serde.rs/serde_json/value/enum.Value.html
-//! [from_str]: https://docs.serde.rs/serde_json/de/fn.from_str.html
-//! [from_slice]: https://docs.serde.rs/serde_json/de/fn.from_slice.html
-//! [from_reader]: https://docs.serde.rs/serde_json/de/fn.from_reader.html
-//! [to_string]: https://docs.serde.rs/serde_json/ser/fn.to_string.html
-//! [to_vec]: https://docs.serde.rs/serde_json/ser/fn.to_vec.html
-//! [to_writer]: https://docs.serde.rs/serde_json/ser/fn.to_writer.html
-//! [macro]: https://docs.serde.rs/serde_json/macro.json.html
+//! [value]: crate::value::Value
+//! [from_str]: crate::de::from_str
+//! [from_slice]: crate::de::from_slice
+//! [from_reader]: crate::de::from_reader
+//! [to_string]: crate::ser::to_string
+//! [to_vec]: crate::ser::to_vec
+//! [to_writer]: crate::ser::to_writer
+//! [macro]: crate::json
 //! [`serde-json-core`]: https://github.com/rust-embedded-community/serde-json-core
 
-#![doc(html_root_url = "https://docs.rs/serde_json/1.0.82")]
+#![doc(html_root_url = "https://docs.rs/serde_json/1.0.138")]
 // Ignored clippy lints
 #![allow(
     clippy::collapsible_else_if,
@@ -315,18 +314,14 @@
     clippy::match_single_binding,
     clippy::needless_doctest_main,
     clippy::needless_late_init,
-    // clippy bug: https://github.com/rust-lang/rust-clippy/issues/8366
-    clippy::ptr_arg,
+    clippy::needless_lifetimes,
     clippy::return_self_not_must_use,
     clippy::transmute_ptr_to_ptr,
-    clippy::unnecessary_wraps,
-    // clippy bug: https://github.com/rust-lang/rust-clippy/issues/5704
-    clippy::unnested_or_patterns,
+    clippy::unconditional_recursion, // https://github.com/rust-lang/rust-clippy/issues/12133
+    clippy::unnecessary_wraps
 )]
 // Ignored clippy_pedantic lints
 #![allow(
-    // buggy
-    clippy::iter_not_returning_iterator, // https://github.com/rust-lang/rust-clippy/issues/8285
     // Deserializer::from_str, into_iter
     clippy::should_implement_trait,
     // integer and float ser/de requires these sorts of casts
@@ -338,6 +333,7 @@
     clippy::enum_glob_use,
     clippy::if_not_else,
     clippy::integer_division,
+    clippy::let_underscore_untyped,
     clippy::map_err_ignore,
     clippy::match_same_arms,
     clippy::similar_names,
@@ -345,6 +341,7 @@
     clippy::wildcard_imports,
     // things are often more readable this way
     clippy::cast_lossless,
+    clippy::items_after_statements,
     clippy::module_name_repetitions,
     clippy::redundant_else,
     clippy::shadow_unrelated,
@@ -361,14 +358,32 @@
     clippy::missing_errors_doc,
     clippy::must_use_candidate,
 )]
+// Restrictions
+#![deny(clippy::question_mark_used)]
 #![allow(non_upper_case_globals)]
 #![deny(missing_docs)]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
+
+#[cfg(not(any(feature = "std", feature = "alloc")))]
+compile_error! {
+    "serde_json requires that either `std` (default) or `alloc` feature is enabled"
+}
 
 extern crate alloc;
 
 #[cfg(feature = "std")]
+extern crate std;
+
+// Not public API. Used from macro-generated code.
+#[doc(hidden)]
+pub mod __private {
+    #[doc(hidden)]
+    pub use alloc::vec;
+}
+
+#[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[doc(inline)]
 pub use crate::de::from_reader;
 #[doc(inline)]
@@ -378,6 +393,7 @@ pub use crate::error::{Error, Result};
 #[doc(inline)]
 pub use crate::ser::{to_string, to_string_pretty, to_vec, to_vec_pretty};
 #[cfg(feature = "std")]
+#[cfg_attr(docsrs, doc(cfg(feature = "std")))]
 #[doc(inline)]
 pub use crate::ser::{to_writer, to_writer_pretty, Serializer};
 #[doc(inline)]
@@ -406,8 +422,6 @@ pub mod ser;
 #[cfg(not(feature = "std"))]
 mod ser;
 pub mod value;
-
-mod features_check;
 
 mod io;
 #[cfg(feature = "std")]
