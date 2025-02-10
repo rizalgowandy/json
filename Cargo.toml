@@ -1,43 +1,41 @@
 [package]
 name = "serde_json"
-version = "1.0.82" # remember to update html_root_url
+version = "1.0.138"
 authors = ["Erick Tryzelaar <erick.tryzelaar@gmail.com>", "David Tolnay <dtolnay@gmail.com>"]
-license = "MIT OR Apache-2.0"
+categories = ["encoding", "parser-implementations", "no-std"]
 description = "A JSON serialization file format"
-repository = "https://github.com/serde-rs/json"
-documentation = "https://docs.serde.rs/serde_json/"
+documentation = "https://docs.rs/serde_json"
+edition = "2021"
 keywords = ["json", "serde", "serialization"]
-categories = ["encoding"]
-readme = "README.md"
-edition = "2018"
-rust-version = "1.36"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/serde-rs/json"
+rust-version = "1.56"
 
 [dependencies]
-serde = { version = "1.0.100", default-features = false }
-indexmap = { version = "1.5.2", features = ["std"], optional = true }
+indexmap = { version = "2.2.3", optional = true }
 itoa = "1.0"
+memchr = { version = "2", default-features = false }
 ryu = "1.0"
+serde = { version = "1.0.194", default-features = false }
 
 [dev-dependencies]
-automod = "1.0"
-ref-cast = "1.0"
-rustversion = "1.0"
-serde = { version = "1.0.100", features = ["derive"] }
-serde_bytes = "0.11"
-serde_derive = "1.0"
-serde_stacker = "0.1"
-trybuild = { version = "1.0.49", features = ["diff"] }
-
-[workspace]
-members = ["tests/crate"]
+automod = "1.0.11"
+indoc = "2.0.2"
+ref-cast = "1.0.18"
+rustversion = "1.0.13"
+serde = { version = "1.0.194", features = ["derive"] }
+serde_bytes = "0.11.10"
+serde_derive = "1.0.166"
+serde_stacker = "0.1.8"
+trybuild = { version = "1.0.81", features = ["diff"] }
 
 [package.metadata.docs.rs]
-features = ["raw_value", "unbounded_depth"]
+features = ["preserve_order", "raw_value", "unbounded_depth"]
 targets = ["x86_64-unknown-linux-gnu"]
-rustdoc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--generate-link-to-definition"]
 
 [package.metadata.playground]
-features = ["raw_value"]
+features = ["float_roundtrip", "raw_value", "unbounded_depth"]
 
 
 ### FEATURES #################################################################
@@ -45,12 +43,11 @@ features = ["raw_value"]
 [features]
 default = ["std"]
 
-std = ["serde/std"]
+std = ["memchr/std", "serde/std"]
 
 # Provide integration for heap-allocated collections without depending on the
 # rest of the Rust standard library.
 # NOTE: Disabling both `std` *and* `alloc` features is not supported yet.
-# Available on Rust 1.36+.
 alloc = ["serde/alloc"]
 
 # Make serde_json::Map use a representation which maintains insertion order.

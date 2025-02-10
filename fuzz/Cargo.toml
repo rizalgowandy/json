@@ -1,8 +1,9 @@
 [package]
 name = "serde_json-fuzz"
 version = "0.0.0"
-publish = false
+authors = ["David Tolnay <dtolnay@gmail.com>"]
 edition = "2021"
+publish = false
 
 [package.metadata]
 cargo-fuzz = true
@@ -16,5 +17,3 @@ name = "from_slice"
 path = "fuzz_targets/from_slice.rs"
 test = false
 doc = false
-
-[workspace]
